@@ -10,17 +10,29 @@ app.use(express.json());
 const upload = multer({ storage: multer.memoryStorage() });
 const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 
+let userMemory = {};
+
 app.post("/api/chat", upload.single("file"), async (req, res) => {
   try {
-    const { question, language, mode } = req.body;
+    const { question, userId = "default_user", mode } = req.body;
     const file = req.file;
+
+    if (!userMemory[userId]) {
+      userMemory[userId] = [];
+    }
+
+    let memoryContext = userMemory[userId].length > 0 
+      ? `[Stored User Memory & Facts]: ${userMemory[userId].join("; ")}\n\n` 
+      : "";
 
     let promptText = question || "";
     if (mode === "teacher_analysis") {
-      promptText = `[Teacher Analysis Mode]: Based on previous files or questions, analyze the professor's style, question patterns, and expected exam topics:\n\n${promptText}`;
+      promptText = `[Teacher Analysis Mode]: ${promptText}`;
     }
 
-    let contents = [promptText];
+    let fullPrompt = memoryContext + promptText;
+
+    let contents = [fullPrompt];
     if (file) {
       contents.push({
         inlineData: {
@@ -39,11 +51,19 @@ app.post("/api/chat", upload.single("file"), async (req, res) => {
       contents: contents,
     });
 
+    let completeResponse = "";
+
     for await (const chunk of responseStream) {
       if (chunk.text) {
+        completeResponse += chunk.text;
         res.write(`data: ${JSON.stringify({ text: chunk.text })}\n\n`);
       }
     }
+
+    if (question && (question.includes("اسم") || question.includes("أنا") || question.includes("my name is"))) {
+      userMemory[userId].push(question);
+    }
+
     res.write('data: [DONE]\n\n');
     res.end();
 
