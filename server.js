@@ -1,77 +1,49 @@
 const express = require("express");
 const cors = require("cors");
-const dotenv = require("dotenv");
+const multer = require("multer");
 const { GoogleGenAI } = require("@google/genai");
 
-dotenv.config();
-
 const app = express();
-const PORT = 3000;
-
 app.use(cors());
 app.use(express.json());
 
-const apiKey = process.env.GEMINI_API_KEY;
+const upload = multer({ storage: multer.memoryStorage() });
+const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 
-if (!apiKey) {
-  console.error("GEMINI_API_KEY is missing.");
-  process.exit(1);
-}
-
-const ai = new GoogleGenAI({
-  apiKey,
-});
-
-const MODEL = "gemini-3.6-flash";
-
-app.get("/", (req, res) => {
-  res.json({
-    success: true,
-    message: "Study AI server is running",
-    model: MODEL,
-  });
-});
-
-app.post("/api/chat", async (req, res) => {
+app.post("/api/chat", upload.single("file"), async (req, res) => {
   try {
-    const message = req.body.message;
+    const { question, language } = req.body;
+    const file = req.file;
 
-    if (!message || !message.trim()) {
-      return res.status(400).json({
-        success: false,
-        error: "Message is required",
+    let promptText = question || "";
+    if (language) {
+      promptText = `[الرد يجب أن يكون حصرياً باللغة: ${language}]\n\n${promptText}`;
+    }
+
+    let contents = [promptText];
+
+    if (file) {
+      contents.push({
+        inlineData: {
+          data: file.buffer.toString("base64"),
+          mimeType: file.mimetype,
+        },
       });
     }
 
-    console.log(`Sending request to ${MODEL}...`);
-
     const response = await ai.models.generateContent({
-      model: MODEL,
-      contents: message,
-      config: {
-        thinkingConfig: {
-          thinkingLevel: "low",
-        },
-      },
+      model: "gemini-2.5-flash",
+      contents: contents,
     });
 
-    console.log("Gemini response received.");
-
-    res.json({
-      success: true,
-      reply: response.text,
-    });
+    res.json({ answer: response.text });
   } catch (error) {
-    console.error("Gemini error:", error);
-
-    res.status(500).json({
-      success: false,
-      error: error.message || "Gemini request failed",
-    });
+    console.error("Server Error:", error);
+    res.status(500).json({ answer: "حدث خطأ في معالجة الطلب داخل الخادم." });
   }
 });
 
-app.listen(PORT, "0.0.0.0", () => {
-  console.log(`Study AI server running on http://0.0.0.0:${PORT}`);
-  console.log(`Using model: ${MODEL}`);
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => {
+  console.log(`Server running on port ${PORT}`);
 });
