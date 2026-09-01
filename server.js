@@ -151,7 +151,7 @@ app.post("/api/chat", async (req, res) => {
 
       const fullPrompt = `${systemInstruction}\n\nاسم المستخدم: ${username}\n\nرسالة المستخدم:\n${message}`;
       const response = await ai.models.generateContent({
-        model: process.env.GEMINI_MODEL || "gemini-1.5-flash",
+        model: process.env.GEMINI_MODEL || "gemini-2.0-flash",
         contents: fullPrompt,
       });
 
