@@ -151,7 +151,7 @@ app.post("/api/chat", async (req, res) => {
 
       const fullPrompt = `${systemInstruction}\n\nاسم المستخدم: ${username}\n\nرسالة المستخدم:\n${message}`;
       const response = await ai.models.generateContent({
-        model: process.env.GEMINI_MODEL || "gemini-2.5-flash",
+        model: process.env.GEMINI_MODEL || "gemini-1.5-flash",
         contents: fullPrompt,
       });
 
@@ -162,7 +162,7 @@ app.post("/api/chat", async (req, res) => {
       }
 
       const completion = await xaiClient.chat.completions.create({
-        model: process.env.XAI_MODEL || "grok-beta",
+        model: process.env.XAI_MODEL || "grok-2",
         messages: [
           { role: "system", content: systemInstruction },
           { role: "user", content: message },
